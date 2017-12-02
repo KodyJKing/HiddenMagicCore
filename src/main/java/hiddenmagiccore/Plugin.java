@@ -6,6 +6,8 @@ import javax.annotation.Nullable;
 import java.util.Map;
 
 @IFMLLoadingPlugin.MCVersion("1.12.2")
+@IFMLLoadingPlugin.TransformerExclusions({"hiddenmagiccore"})
+
 public class Plugin implements IFMLLoadingPlugin {
 
     @Override

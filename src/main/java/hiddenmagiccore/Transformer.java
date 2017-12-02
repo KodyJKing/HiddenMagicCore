@@ -7,33 +7,29 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 import org.objectweb.asm.Type;
 
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.List;
 
+import org.objectweb.asm.Opcodes;
 import static org.objectweb.asm.Opcodes.*;
 
 public class Transformer implements IClassTransformer {
 
-    static boolean obfuscated = false;
-    private static Hook hook = new Hook(
-            "net/minecraft/block/BlockLeaves/updateTick (Lnet/minecraft/world/World;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/block/state/IBlockState;Ljava/util/Random;)V arr/b (Lamu;Let;Lawt;Ljava/util/Random;)V",
-            "hiddenmagiccore/Hooks"
-    );
-
     @Override
     public byte[] transform(String name, String transformedName, byte[] basicClass) {
-        obfuscated = !name.equals(transformedName);
-        String dotClassPath = hook.classPath.replace('/', '.');
-        if (transformedName.equals(dotClassPath)) {
+        boolean obfuscated = !name.equals(transformedName);
+        String classPath = transformedName.replace('.', '/');
+        if (HookRegistry.hasHooks(classPath)) {
+
 //            System.out.println("Obfuscated: " + String.valueOf(obfuscated));
 //            System.out.println("Name: " + String.valueOf(name));
 //            System.out.println("Transformed Name: " + String.valueOf(transformedName));
+
             try {
                 ClassNode classNode = new ClassNode();
                 ClassReader classReader = new ClassReader(basicClass);
                 classReader.accept(classNode, 0);
 
-                findMethod(hook, classNode);
+                findMethods(classPath, classNode, obfuscated);
 
                 ClassWriter classWriter = new ClassWriter(ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES);
                 classNode.accept(classWriter);
@@ -45,37 +41,54 @@ public class Transformer implements IClassTransformer {
         return basicClass;
     }
 
-    private static void findMethod(Hook hook, ClassNode classNode) {
-        for (MethodNode methodNode : classNode.methods) {
+    private static void findMethods(String classPath, ClassNode classNode, boolean obfuscated) {
+        List<Hook> hooks = HookRegistry.getHooks(classPath);
+        for (Hook hook: hooks) {
+            for (MethodNode methodNode : classNode.methods) {
+
 //            System.out.println("Checking method...");
 //            System.out.println(methodNode.name + " " + methodNode.desc);
-            if (methodNode.name.equals(hook.getMethodName()) && methodNode.desc.equals(hook.getDesciptor()))
-                transformMethod(hook, methodNode);
+
+                if (methodNode.name.equals(hook.getMethodName(obfuscated)) && methodNode.desc.equals(hook.getDesciptor(obfuscated)))
+                    transformMethod(hook, methodNode, obfuscated);
+            }
         }
     }
 
-    private static void transformMethod(Hook hook, MethodNode methodNode) {
+    private static void transformMethod(Hook hook, MethodNode methodNode, boolean obfuscated) {
+
 //        System.out.println("Transforming method.");
 //        System.out.println(methodNode.name + " " + methodNode.desc);
-
-        AbstractInsnNode firstNode = methodNode.instructions.getFirst();
 
         InsnList insnList = new InsnList();
         LabelNode labelNode = new LabelNode();
 
         insnList.add(labelNode);
 
-        String hookDesc = hook.getHookDescriptor(methodNode);
+        String hookDesc = hook.getHookDescriptor(methodNode.desc, isStatic(methodNode), obfuscated);
         loadArguments(insnList, hookDesc);
+
 //        System.out.println("Using method descriptor: " + hookDesc);
 
-        insnList.add(new MethodInsnNode(INVOKESTATIC, hook.hookClassPath, hook.methodName, hookDesc,false));
+        insnList.add(new MethodInsnNode(INVOKESTATIC, hook.hookClassPath, hook.hookMethodName, hookDesc,false));
 
-        methodNode.instructions.insertBefore(firstNode, insnList);
+        if (hook.insertBefore) {
+            AbstractInsnNode firstNode = methodNode.instructions.getFirst();
+            methodNode.instructions.insertBefore(firstNode, insnList);
+        } else {
+            AbstractInsnNode insnNode = methodNode.instructions.getLast();
+            for (int i = methodNode.instructions.size() - 1; i >= 0; i--) {
+                insnNode = methodNode.instructions.get(i);
+                if (insnNode.getOpcode() == RETURN) break;
+            }
+            methodNode.instructions.insertBefore(insnNode, insnList);
+        }
     }
 
     private static void loadArguments(InsnList insnList, String desc) {
+
 //        System.out.println("Loading arguments.");
+
         Type[] types = Type.getArgumentTypes(desc);
         int i = 0;
         for (Type type: types) {
@@ -91,58 +104,4 @@ public class Transformer implements IClassTransformer {
         return true;
     }
 
-    private static class Hook {
-
-        public String classPath, obfClassPath, methodName, obfMethodName, desciptor, obfDescriptor, hookClassPath;
-
-        public Hook(String srg, String hookClassPath) {
-            String[] parts = srg.split(" ");
-
-            String[] classMethod = classAndMethod(parts[0]);
-            this.classPath = classMethod[0];
-            this.methodName = classMethod[1];
-
-            this.desciptor = parts[1];
-
-            String[] obfClassMethod = classAndMethod(parts[2]);
-            this.obfClassPath = obfClassMethod[0];
-            this.obfMethodName = obfClassMethod[1];
-
-            this.obfDescriptor = parts[3];
-
-            this.hookClassPath = hookClassPath;
-
-//            System.out.println("classPath: " + classPath);
-//            System.out.println("obfClassPath: " + obfClassPath);
-//            System.out.println("methodName: " + methodName);
-//            System.out.println("obfMethodName: " + obfMethodName);
-//            System.out.println("desciptor: " + desciptor);
-//            System.out.println("obfDescriptor: " + obfDescriptor);
-//            System.out.println("hookClassPath: " + hookClassPath);
-        }
-
-        private static String[] classAndMethod(String path) {
-            ArrayList<String> parts = new ArrayList<String>(Arrays.asList(path.split("/")));
-            String method = parts.remove(parts.size() - 1);
-            String classPath = String.join("/", parts);
-            return new String[]{classPath, method};
-        }
-
-        public String getClassPath() {
-            return obfuscated ? obfClassPath : classPath;
-        }
-
-        public String getMethodName() {
-            return obfuscated ? obfMethodName : methodName;
-        }
-
-        public String getDesciptor() {
-            return obfuscated ? obfDescriptor : desciptor;
-        }
-
-        public String getHookDescriptor(MethodNode methodNode) {
-            if (isStatic(methodNode)) return methodNode.desc;
-            return "(L" + getClassPath() + ";" + methodNode.desc.substring(1);
-        }
-    }
 }

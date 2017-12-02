@@ -38,7 +38,9 @@ public class Dummy extends DummyModContainer {
     public void init(FMLInitializationEvent evt) {}
 
     @SubscribeEvent
-    public void preInit(FMLPreInitializationEvent evt) {}
+    public void preInit(FMLPreInitializationEvent evt) {
+        System.out.println("Loading Hidden Magic Core...");
+    }
 
     @SubscribeEvent
     public void postInit(FMLPostInitializationEvent evt) {}
