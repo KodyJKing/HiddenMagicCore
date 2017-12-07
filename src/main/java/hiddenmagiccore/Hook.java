@@ -36,12 +36,13 @@ class Hook {
 
     public void print() {
         System.out.println("classPath: " + classPath);
-        System.out.println("obfClassPath: " + obfClassPath);
+//        System.out.println("obfClassPath: " + obfClassPath);
         System.out.println("methodName: " + methodName);
-        System.out.println("obfMethodName: " + obfMethodName);
-        System.out.println("desciptor: " + desciptor);
-        System.out.println("obfDescriptor: " + obfDescriptor);
+//        System.out.println("obfMethodName: " + obfMethodName);
+//        System.out.println("desciptor: " + desciptor);
+//        System.out.println("obfDescriptor: " + obfDescriptor);
         System.out.println("hookClassPath: " + hookClassPath);
+        System.out.println("hookMethodName: " + hookMethodName);
     }
 
     private static String[] classAndMethod(String path) {
@@ -63,8 +64,15 @@ class Hook {
         return obfuscated ? obfDescriptor : desciptor;
     }
 
+    // TODO: Make this work on strongly typed objects rather than strings.
     public String getHookDescriptor(String desc, boolean isStatic, boolean obfuscated) {
-        if (isStatic) return desc;
-        return "(L" + getClassPath(obfuscated) + ";" + desc.substring(1);
+        // Make it a static function.
+        String staticDesc;
+        if (isStatic)
+            staticDesc = desc;
+        else
+            staticDesc = "(L" + getClassPath(obfuscated) + ";" + desc.substring(1);
+        // Make it a void function.
+        return staticDesc.substring(0, staticDesc.indexOf(")")) + ")V";
     }
 }

@@ -12,8 +12,8 @@ public class HookRegistry {
         if (!hooks.containsKey(hook.classPath)) hooks.put(hook.classPath, new ArrayList<>());
         ArrayList<Hook> classHooks = hooks.get(hook.classPath);
         classHooks.add(hook);
-//        System.out.println("Registered hook:");
-//        hook.print();
+        System.out.println("Registered hook:");
+        hook.print();
     }
 
     static boolean hasHooks(String className) {
@@ -32,6 +32,11 @@ public class HookRegistry {
         registerHook(
         "net/minecraft/block/BlockLeaves/updateTick (Lnet/minecraft/world/World;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/block/state/IBlockState;Ljava/util/Random;)V arr/b (Lamu;Let;Lawt;Ljava/util/Random;)V",
         "hiddenmagic/CoreHooks","leafTick",true
+        );
+
+        registerHook(
+        "net/minecraft/world/chunk/Chunk/setBlockState (Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/block/state/IBlockState;)Lnet/minecraft/block/state/IBlockState; axw/a (Let;Lawt;)Lawt;",
+        "hiddenmagic/CoreHooks", "setBlockState", true
         );
     }
 
